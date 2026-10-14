@@ -76,7 +76,7 @@ Do not score the current box blobs with it. Boxes against a mask-IoU threshold o
 ## Data and reproduction
 
 - `uv sync`. ffmpeg must be on PATH.
-- Data (not in git, 1.1 GB): `uv run scripts/fetch_scenediff.py --list`, then fetch pairs to `data/scenediff`.
+- Data (not in git, 1.1 GB): fetch the 50 val pairs with `uv run scripts/fetch_scenediff.py $(cat scripts/val_pairs.txt)`. The script downloads only those pairs from the 12 GB [SceneDiff zip on Hugging Face](https://huggingface.co/datasets/yuqun/SceneDiff), using HTTP range reads, into `data/scenediff`.
 - Run one pair: `uv run diff.py <video1> <video2> -o out/val/<pair>`. VGGT output is cached in `recon.npz`.
 - Homemade score: `uv run eval.py out/val data/scenediff/scenediff_benchmark/data`.
 - Vote threshold sweep: `uv run scripts/sweep2d.py`. It caches scores in `out/s2d`.
