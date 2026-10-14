@@ -1,11 +1,11 @@
 # diff.py
 """uv run diff.py A.mp4 B.mp4 -o out/"""
-import argparse, json, shutil, sys
+import argparse, json, os, shutil, sys
 from pathlib import Path
 import numpy as np
 from changes import Grid, carve, pair_moved, overlap, UNKNOWN, VOXEL
 from recon import reconstruct, cloud, Views
-import change2d, label
+import change2d, label, semantic
 from viewer import write_viewer
 
 FIELDS = ("images", "depth", "conf", "K", "E")  # Views fields, in order, for the recon cache
@@ -31,14 +31,19 @@ def cached_reconstruct(a, b, frames, out):
     return A, B
 
 
-def detect(A, B):
+def shared_space(A, B):
+    """Point clouds and free-space carving of the shared frame; refuses videos that do not show the same space."""
     (pa, oa, ca), (pb, ob, cb) = cloud(A), cloud(B)
     grid = Grid.around(pa, pb)
     sa, sb = carve(grid, pa, oa), carve(grid, pb, ob)
     ov = overlap(sa, sb)
     if ov < MIN_OVERLAP:
         raise ValueError(f"videos don't overlap enough ({ov:.0%}), re-record with shared walls and floor in view")
+    return grid, sa, pa, ca, pb, cb
 
+
+def detect_geometry(A, B, grid, pa):
+    """Fallback without a VLM: DINO patch diff voted into voxels, named by CLIP. Returns changes, removed points."""
     fa, fb = change2d.dino(A.images), change2d.dino(B.images)
     ba = change2d.vote(*change2d.scores(B, A, fb, fa), grid, "added", *VOTE)
     br = change2d.vote(*change2d.scores(A, B, fa, fb), grid, "removed", *VOTE)
@@ -52,15 +57,39 @@ def detect(A, B):
     box = lambda b: {"lo": b.lo.tolist(), "hi": b.hi.tolist()}
     for i, j in pairs:
         w, pr = label.name(ea[j] + er[i])
-        changes.append({"type": "moved", "label": w, "score": pr, **box(ba[j]), "from_lo": br[i].lo.tolist(),
-                        "from_hi": br[i].hi.tolist(), "text": label.sentence("moved", w, place(ba[j]), place(br[i]))})
+        changes.append({"type": "moved", "label": w, "score": pr, "status": "confirmed", **box(ba[j]),
+                        "from_lo": br[i].lo.tolist(), "from_hi": br[i].hi.tolist(),
+                        "text": label.sentence("moved", w, place(ba[j]), place(br[i]))})
     for kind, bl, em, skip in (("added", ba, ea, moved_a), ("removed", br, er, moved_r)):
         for k, b in enumerate(bl):
             if k not in skip:
                 w, pr = label.name(em[k])
-                changes.append({"type": kind, "label": w, "score": pr, **box(b), "from_lo": None, "from_hi": None,
-                                "text": label.sentence(kind, w, place(b))})
-    return changes, (grid, sa, br, pa, ca, pb, cb)
+                changes.append({"type": kind, "label": w, "score": pr, "status": "confirmed", **box(b),
+                                "from_lo": None, "from_hi": None, "text": label.sentence(kind, w, place(b))})
+    ghost_mask = np.zeros(grid.shape, bool)
+    for b in br:
+        ghost_mask[tuple(b.idx.T)] = True
+    gi = grid.index(pa); ok = grid.inside(gi)
+    return changes, pa[ok][ghost_mask[tuple(gi[ok].T)]]
+
+
+def report(changes):
+    lines = ["# What changed", ""]
+    for status, head in (("confirmed", None), ("unverified", "## Unverified (the other video could not check these)"),
+                         ("rejected", "## Rejected by geometry (claimed by the VLM, contradicted in 3D)")):
+        cs = [c for c in changes if c.get("status", "confirmed") == status]
+        if not cs:
+            continue
+        if head:
+            lines += ["", head, ""]
+        for c in cs:
+            why = f" ({c['why']})" if c.get("why") else ""
+            lines.append(f"- {c['text']}{why}")
+            if c.get("image"):
+                lines.append(f"  ![{c['label']}]({c['image']})")
+    if len(lines) == 2:
+        lines.append("No changes detected.")
+    return "\n".join(lines) + "\n"
 
 
 def fail(msg):
@@ -72,32 +101,40 @@ def main():
     ap.add_argument("a", type=Path); ap.add_argument("b", type=Path)
     ap.add_argument("-o", "--out", type=Path, default=Path("out"))
     ap.add_argument("--frames", type=int, default=FRAMES, help="frames sampled per video")
+    ap.add_argument("--detector", choices=("auto", "semantic", "geometry"), default="auto",
+                    help="semantic: VLM claims checked in 3D (needs OPENAI_API_KEY); geometry: no API; auto: "
+                         "semantic when the key is set")
     args = ap.parse_args()
     for p in (args.a, args.b):
         if not p.is_file():
             fail(f"video not found: {p}")
     if shutil.which("ffmpeg") is None:
         fail("ffmpeg not found, install it first (brew install ffmpeg)")
+    if args.detector == "auto":
+        args.detector = "semantic" if os.environ.get("OPENAI_API_KEY") else "geometry"
+        if args.detector == "geometry":
+            print("OPENAI_API_KEY not set: using the geometry-only detector (weaker, fixed vocabulary)")
     args.out.mkdir(parents=True, exist_ok=True)
 
     try:
         A, B = cached_reconstruct(args.a, args.b, args.frames, args.out)
-        changes, (grid, sa, br, pa, ca, pb, cb) = detect(A, B)
+        grid, sa, pa, ca, pb, cb = shared_space(A, B)
+        if args.detector == "semantic":
+            frames = [sorted((args.out / "frames" / s).glob("*.jpg")) for s in "AB"]
+            changes = semantic.detect(A, B, *frames, args.out)
+            gone = [np.array(c["points"]["A"]) for c in changes if c["status"] != "rejected" and "A" in c["points"]]
+            ghost = np.concatenate(gone) if gone else np.zeros((0, 3))
+        else:
+            changes, ghost = detect_geometry(A, B, grid, pa)
     except (RuntimeError, ValueError) as e:
         fail(str(e))
 
-    (args.out / "changes.json").write_text(json.dumps(changes, indent=2))
+    (args.out / "changes.json").write_text(json.dumps([{k: v for k, v in c.items() if k != "points"} for c in changes], indent=2))
     np.savez(args.out / "cams.npz", KA=A.K, EA=A.E, KB=B.K, EB=B.E, hw=A.depth.shape[1:])  # for eval.py
-    (args.out / "report.md").write_text("# What changed\n\n" + (
-        "\n".join(f"- {c['text']} (confidence {c['score']:.0%})" for c in changes) or "No changes detected.") + "\n")
+    (args.out / "report.md").write_text(report(changes))
 
     unseen = sa[tuple(np.clip(grid.index(pb), 0, np.array(grid.shape) - 1).T)] == UNKNOWN
     gray = cb.copy(); gray[unseen] = 120
-    ghost_mask = np.zeros(grid.shape, bool)
-    for b in br:
-        ghost_mask[tuple(b.idx.T)] = True
-    gi = grid.index(pa); ok = grid.inside(gi)
-    ghost = pa[ok][ghost_mask[tuple(gi[ok].T)]]
     write_viewer(args.out / "viewer.html", {"A": {"pos": pa, "col": ca}, "B": {"pos": pb, "col": cb, "gray": gray},
                                             "ghost": {"pos": ghost}, "changes": changes})
     print((args.out / "report.md").read_text())
