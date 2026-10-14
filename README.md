@@ -61,3 +61,16 @@ If the result is wrong:
 ```
 uv run pytest -q
 ```
+
+## SceneDiff benchmark: masks and 3D positions
+
+The benchmark track outputs a per-frame mask and a 3D position for each changed object. It is a separate pipeline from `diff.py`, and it is scored with the official [SceneDiff](https://github.com/yuqunw/scene_diff) evaluator, cloned into `third_party/scene_diff`.
+
+```
+uv run scripts/fetch_scenediff.py --list      # then fetch the val pairs to data/scenediff
+uv run scripts/vlm_track.py                   # VLM boxes + SAM2 masks -> out/pred_vlm/<scene>/object_masks.pkl
+uv run scripts/locate.py out/pred_vlm         # VGGT depth -> out/pred_vlm/<scene>/objects.json
+uv run python bench.py out/pred_vlm           # official scorer
+```
+
+Val split, varied set, all 50 scenes: px/im IoU 0.520, obj/im AP 0.322, obj/sc AP 0.323 (0.284 with the change type). The VLM step needs the `codex` CLI. See `HANDOFF.md` for details and the comparison with the paper.
