@@ -1,10 +1,25 @@
-# Handoff (2026-10-14)
+# Handoff (2026-10-15)
 
 ## Goal
 
 Given a before video and an after video of a room, find objects that were added, removed or moved. For each one, output a per-frame object mask and a 3D position. The benchmark is [SceneDiff](https://github.com/yuqunw/scene_diff) ([paper](https://arxiv.org/abs/2512.16908)).
 
-## Current best: VLM proposals + SAM2 masks (`scripts/vlm_track.py`)
+## Current best: official method + VLM track, fused and verified (`scripts/fuse.py`, `scripts/verify.py`)
+
+Same scorer and scenes as below. Settings were picked on these scenes; confirm on the test split.
+
+| Method | px/im IoU | obj/im AP | obj/sc AP | obj/sc AP + type | TP / FP / FN |
+|---|---|---|---|---|---|
+| Official SceneDiff, MPS port (`out/pred_official`) | 0.354 | 0.548 | 0.400 | 0.318 | 94 / 319 / 67 |
+| Fusion, `union_off` (`out/pred_fuse_union_off`) | 0.490 | 0.576 | 0.498 | 0.448 | 110 / 348 / 51 |
+| **+ verifier, demote** (`out/pred_verify_demote`) | 0.490 | **0.585** | **0.522** | **0.472** | 110 / 348 / 51 |
+| + verifier, drop (`out/pred_verify_drop`) | **0.605** | 0.548 | 0.494 | 0.449 | 100 / 91 / 61 |
+
+- Fusion: an official object matches a VLM object at mean per-frame mask IoU >= 0.3. Ranking bands: matched, then official-only, then VLM-only. Matched objects keep the official mask where both have a frame (VLM masks there scored 0.503 obj/im); VLM masks fill the other frames.
+- Verifier: each official-only object becomes an outlined crop (largest mask per video) on numbered sheets, sent to `codex exec` with both videos' contact sheets. Answers cached in `out/verify/<scene>.json`. It kept 64 of 331. The model's confidence is in its verdict, not P(real); ranking by it (0.544) was worse than the official cost.
+- Next: 2-fold CV or the test split; higher-res VLM pass and SAM2 propagation for the 51 misses.
+
+## VLM proposals + SAM2 masks (`scripts/vlm_track.py`)
 
 Official SceneDiff scorer, val split, "varied" set, all 50 scenes.
 
@@ -51,9 +66,10 @@ Where it loses points:
 - The root cause is unchanged: VGGT depth disagrees between the two videos by 10 to 15 cm locally, which is as large as the objects. The paper reports the same: VGGT in place of π³ costs 39.8 obj/im AP.
 - `scripts/auroc_maps.py` and `scripts/viz_cmap.py` are the diagnostics for this.
 
-## Official method port (in progress, not in git)
+## Official method port (done, not in git)
 
-- A worker agent is porting the official SceneDiff pipeline (π³ + DINOv2 in place of the gated DINOv3) to MPS in `third_party/scenediff_mps`. Its config is `configs/scenediff_mps.yml` and its output goes to `out/pred_official`.
+- Full val run finished 2026-10-15, 50/50 scenes, about 11.5 min per scene; scores above.
+- A worker agent ported the official SceneDiff pipeline (π³ + DINOv2 in place of the gated DINOv3) to MPS in `third_party/scenediff_mps`. Its config is `configs/scenediff_mps.yml` and its output goes to `out/pred_official`.
 - π³ is the slow stage: about 340 s for 9 frames with the GPU shared.
 - On this 16 GB Mac, run only one VGGT or π³ job at a time. Two at once fill swap and slow everything 5–10x.
 
