@@ -3,9 +3,12 @@ name = "humanoid-test"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "matplotlib>=3.11.2",
     "numpy>=1.26.4",
     "openai>=3.31.0",
+    "opencv-python-headless>=4.11.0.86",
     "pillow>=12.3.0",
+    "pycocotools>=2.0.11",
     "scikit-image>=0.26.0",
     "scipy>=1.17.1",
     "sentence-transformers>=6.1.0",
@@ -20,9 +23,6 @@ vggt = { git = "https://github.com/facebookresearch/vggt.git" }
 [dependency-groups]
 dev = [
     "faiss-cpu>=1.15.1",
-    "matplotlib>=3.11.2",
-    "opencv-python-headless>=4.11.0.86",
-    "pycocotools>=2.0.11",
     "pytest>=9.1.1",
     "scikit-learn>=1.9.1",
 ]

@@ -1,0 +1,35 @@
+--- a/segment_anything_ls/automatic_mask_generator.py
++++ b/segment_anything_ls/automatic_mask_generator.py
+@@ -308,7 +308,7 @@
+ 
+         # Run model on this batch
+         transformed_points = self.predictor.transform.apply_coords(points, im_size)
+-        in_points = torch.as_tensor(transformed_points, device=self.predictor.device)
++        in_points = torch.as_tensor(transformed_points, dtype=torch.float32, device=self.predictor.device)  # MPS port: no float64 on MPS
+         in_labels = torch.ones(in_points.shape[0], dtype=torch.int, device=in_points.device)
+         masks, iou_preds, _ = self.predictor.predict_torch(
+             in_points[:, None, :],
+--- a/segment_anything_ls/utils/amg.py
++++ b/segment_anything_ls/utils/amg.py
+@@ -46,7 +46,12 @@
+             if v is None:
+                 self._stats[k] = None
+             elif isinstance(v, torch.Tensor):
+-                self._stats[k] = v[torch.as_tensor(keep, device=v.device)]
++                # MPS port: boolean-mask indexing of big MPS tensors is ~1000x slower than
++                # index_select; same result.
++                idx = torch.as_tensor(keep, device=v.device)
++                if idx.dtype == torch.bool:
++                    idx = idx.nonzero().flatten()
++                self._stats[k] = v.index_select(0, idx.long())
+             elif isinstance(v, np.ndarray):
+                 self._stats[k] = v[keep.detach().cpu().numpy()]
+             elif isinstance(v, list) and keep.dtype == torch.bool:
+@@ -111,6 +116,7 @@
+     """
+     # Put in fortran order and flatten h,w
+     b, h, w = tensor.shape
++    tensor = tensor.cpu()  # MPS port: nonzero on MPS is very slow
+     tensor = tensor.permute(0, 2, 1).flatten(1)
+ 
+     # Compute change indices

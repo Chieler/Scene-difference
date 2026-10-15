@@ -2,40 +2,51 @@
 
 Give it two phone videos of the same room, recorded at different times. It builds one shared 3D model from both, and finds objects that were added, removed or moved. Each change gets a name, a sentence, a 3D box, before and after pictures, and a verdict from geometry on whether the change is real.
 
+Two versions, same output:
+
 ```
-uv run diff.py before.mp4 after.mp4 -o out/
+uv run diff.py before.mp4 after.mp4 -o out/            # full: uses a VLM (OpenAI API key, or the codex CLI)
+uv run diff.py before.mp4 after.mp4 -o out/ --offline  # backup: fully local, no API, no network after setup
 ```
+
+Without `--offline` it picks the full version when a VLM is available and falls back to offline otherwise.
 
 <!-- EXAMPLE: replace with the real run on examples/ -->
 > **Example** (`examples/before.mp4` → `examples/after.mp4`): _to be filled in with the committed run in `examples/out/`._
 
-## The idea: a VLM proposes, geometry disposes
+## The idea: two detectors that fail in opposite ways, and geometry as the judge
 
-A vision-language model is very good at noticing *that* something changed and *what* it is ("a green bottle with a black cap"). It is bad at telling a real change from one caused by a new viewpoint: an object hidden behind a chair in one video looks "removed" to it.
+**Geometry** finds changes everywhere, including ones that aren't real. Once both videos share one coordinate frame you can ask exactly *where* the other video looked and *what it saw there*. But monocular depth from two separate videos disagrees by 10 to 15 cm, as much as the objects themselves, so pure geometry diffs drown in noise. The official [SceneDiff](https://github.com/yuqunw/scene_diff) method copes better than anything I built: it segments every frame with SAM and scores each segment by depth and appearance changes across many view pairs. On its benchmark it finds most changed objects, along with about three false alarms for each real change.
 
-3D geometry has the opposite profile. Once both videos share one coordinate frame, you can ask exactly *where* the other video looked and *what it saw there*. But pixel-level geometry diffs drown in noise. Monocular depth from two separate videos disagrees by 10 to 15 cm, as much as the objects themselves. My first, geometry-only version of this project hit that ceiling (F1 0.27 on the SceneDiff benchmark).
+**A vision-language model** is the mirror image. It is very good at noticing *that* something changed and *what* it is ("a green bottle with a black cap"), and it rarely invents changes. But it misses small objects, and it can't tell a real change from one caused by a new viewpoint.
 
-So the two split the work:
+So the pipeline lets each cover the other:
 
 1. **Shared 3D.** [VGGT](https://github.com/facebookresearch/vggt) reconstructs both videos in a *single* forward pass (24 frames each), so both come out in one coordinate frame. No separate registration step can fail. The frame is rotated gravity-up and scaled to meters from a RANSAC floor fit.
-2. **Propose.** An OpenAI vision model sees both videos as labeled contact sheets. For each change it returns a name, a sentence, a type and a box in every frame where the object appears.
-3. **Segment and lift.** SAM2 turns every box into a mask. VGGT depth lifts each mask into the shared 3D frame.
-4. **Verify against the other video.** For each claimed object, project its 3D points into every frame of the *other* video, and check visibility with a depth test:
+2. **Candidates from geometry.** The SceneDiff method (ported to Apple-silicon GPUs, `official.py`) runs on the same 24 + 24 frames and returns per-frame masks of objects that may have changed.
+3. **Claims from the VLM** (full version). The VLM sees both videos as labeled contact sheets and returns, for each change, a name, a sentence, a type and a box in every frame where it appears. SAM2 turns the boxes into masks.
+4. **Fuse.** A candidate whose masks overlap a VLM claim is the same object: it is ranked first and named by the VLM. Each remaining candidate is shown to the VLM as an outlined crop, next to both videos, and named or vetoed. In the offline version, CLIP names the candidates instead.
+5. **Check every object in 3D against the other video.** VGGT depth lifts each mask into the shared frame. Its points are projected into every frame of the *other* video and tested for visibility:
    - **not seen:** the other video never looked at that spot, or something nearer was in the way. Then the claim is *unverified*, not *removed*. Incomplete observation is not evidence of change.
    - **seen through:** the other video sees *past* the spot, into free space where the object stood. That is the strongest evidence of a change.
    - **looks different:** DINOv2 features at the spot don't match the object.
 
-   The object is scored *relative to a ring of background around it*. The ring has the same registration noise, so only evidence above the noise floor counts. Claims the geometry contradicts are *rejected* but kept in the output, so you can see what the VLM got wrong. A "moved" object whose two 3D positions coincide is also rejected.
-5. **Present.** The output has a report, a before/after crop per change, and an interactive 3D viewer. The viewer shows boxes, the object's own points, a ghost of removed objects, a toggle for rejected claims, and grey where the other video never looked.
+   The object is scored *relative to a ring of background around it*. The ring has the same registration noise, so only evidence above the noise floor counts. Rejected objects are kept in the output, with the reason, so you can see what was ruled out and why. A "moved" object whose two 3D positions coincide is also rejected.
+6. **Present.** The output has a report, a before/after crop per change, and an interactive 3D viewer. The viewer shows boxes, the object's own points, a ghost of removed objects, a toggle for rejected claims, and grey where the other video never looked.
 
-No API key? `--detector geometry` runs the older geometry-only detector (DINO patch diff voted into voxels, labeled by CLIP). It is weaker, but fully local.
+On SceneDiff, fusing the two detectors scores higher than either alone: obj/im AP 0.585, against 0.548 for the official method and 0.322 for the VLM (table below).
+
+Other modes: `--detector fast` runs only the VLM claims plus the 3D check (about 2 minutes, no SceneDiff stage). `--detector geometry` runs my first, voxel-diff detector.
 
 ## Setup
 
 - `uv sync`
 - ffmpeg on PATH (`brew install ffmpeg`)
-- `export OPENAI_API_KEY=...`. Optional: `OPENAI_MODEL` (default `gpt-5`).
-- The first run downloads about 7 GB of weights: VGGT-1B, SAM2.1-base+, DINOv2-base, CLIP ViT-L/14. Uses MPS when available, else CPU. Tested on an M-series Mac with 16 GB.
+- Full version, one of:
+  - `export OPENAI_API_KEY=...`, optional `OPENAI_MODEL` (default `gpt-5`);
+  - or the [codex CLI](https://github.com/openai/codex), logged in. It is used when no key is set.
+- `bash scripts/setup_scenediff.sh` (both versions need it). It clones π³ and the SceneDiff SAM fork at pinned commits and applies the MPS patches from `scenediff_mps/patches/`. It also downloads the SAM ViT-H checkpoint (2.6 GB, sha256-checked) and the π³ and DINOv2-L weights. After that the SceneDiff stage runs without network.
+- The first run downloads the model weights: VGGT-1B, π³, SAM ViT-H, SAM2.1-base+, DINOv2-base and -large, CLIP ViT-L/14. Uses MPS when available, else CPU. Tested on an M-series Mac with 16 GB. <!-- RUNTIME: per-version time on the stand-in pair -->
 
 ## Output
 
@@ -45,7 +56,7 @@ No API key? `--detector geometry` runs the older geometry-only detector (DINO pa
   - Grey points = space the other video never saw.
 - `out/changes.json`: everything above, machine-readable: 3D boxes, evidence numbers, frames.
 - `out/changes/NN.jpg`: before/after crops with the object outlined.
-- `out/vlm.json`: the raw VLM claims, cached, so reruns are free.
+- `out/vlm.json`, `out/verify.json`, `out/official/`: the raw VLM claims, the VLM's verdicts on the SceneDiff candidates, and the SceneDiff candidates, all cached, so reruns are fast.
 
 ## Recording tips
 
@@ -84,13 +95,17 @@ uv run scripts/verify.py                      # VLM verifier on the official-onl
 ## Design choices and tradeoffs
 
 - **One VGGT pass for both videos, instead of two reconstructions plus registration.** Registration between separately reconstructed videos is the classic failure point, and joint inference removes it. The cost is memory, since all frames go through the model at once; 48 frames fit in 16 GB.
-- **Proposals from a VLM, not from pixel diffs.** Pixel and voxel diffs are dominated by depth noise, and they also lack names. The VLM gives semantics for free, and its claims are concrete enough (a box per frame) to check.
+- **Two detectors instead of one better one.** Geometry-first detection (SceneDiff) has high recall and many false alarms. The VLM has high precision, names everything, and misses small objects. Fusing them beat each alone on the benchmark. The VLM also checks the geometry's leftovers: it is much more reliable when asked "is this outlined thing a real change?" than "find every change in this room".
+- **An offline version as a fallback, not a toy.** It uses the same candidates and the same 3D check; only the names come from CLIP instead of the VLM. The changes it finds are the SceneDiff method's (obj/im AP 0.548 on the benchmark). What it loses is the VLM's veto on false alarms and its sentences.
 - **Verification uses the other video's actual rays, not a voxel grid.** "Not seen" vs "seen through" vs "looks the same" are three different answers. Only rays the other video actually cast can tell them apart. Comparing the object against its own background ring cancels most of the registration error.
 - **Rejected claims stay in the output.** You can see what the VLM claimed and why geometry disagreed, which makes the system's behavior inspectable.
 - **Limits.**
   - Objects under about 0.5% of the frame are too small to test in 3D, and are reported as unverified.
   - A person walking through can be reported as a change.
-  - The API call costs a few cents per run, and the VLM can miss small objects. On the benchmark, misses outnumber false alarms 2:1.
+  - The SceneDiff stage takes about 20 minutes on a 16 GB Mac, mostly SAM ViT-H on 48 frames. `--detector fast` skips it (about 2 minutes) at lower recall.
+  - In the offline version, "moved" comes from SceneDiff's own appearance match between videos. It can pair the object with a different, similar-looking one nearby, so the before picture may show the wrong object. The full version names and checks these with the VLM.
+  - It uses π³, which is licensed for non-commercial use only (`scenediff_mps/NOTICE.md`).
+  - The VLM calls cost a few cents per run with the OpenAI API.
 
 ## Code
 
@@ -98,10 +113,14 @@ uv run scripts/verify.py                      # VLM verifier on the official-onl
 |---|---|
 | `diff.py` | CLI: reconstruction cache, detector choice, report, viewer |
 | `recon.py` | VGGT joint reconstruction, floor alignment |
-| `semantic.py` | VLM proposals, SAM2 masks, 3D lifting, geometric verification, crops |
+| `semantic.py` | VLM claims, SAM2 masks, 3D lifting, the 3D check against the other video, crops |
+| `official.py` | The SceneDiff method on the sampled frames: candidate masks |
+| `fusion.py` | Full and offline versions: fusing candidates with VLM claims, VLM verification or CLIP names |
+| `vlm.py` | VLM backend (OpenAI API or codex CLI), crop-sheet verifier |
 | `change2d.py`, `changes.py`, `label.py` | Geometry-only detector: DINO patch diff, free-space carving, CLIP labels |
 | `viewer.py` | Self-contained three.js viewer |
 | `bench.py`, `scripts/` | SceneDiff benchmark: frame extraction, official scorer, VLM track, 3D placement |
 | `objdiff.py` | Geometry-first object pipeline, kept as the negative result in the table |
+| `scenediff_mps/`, `scripts/setup_scenediff.sh` | The SceneDiff method (MIT), ported to Apple-silicon GPUs; setup clones and patches its dependencies |
 
 Tests: `uv run pytest -q`

@@ -76,7 +76,7 @@ def detect_geometry(A, B, grid, pa):
 def report(changes):
     lines = ["# What changed", ""]
     for status, head in (("confirmed", None), ("unverified", "## Unverified (the other video could not check these)"),
-                         ("rejected", "## Rejected by geometry (claimed by the VLM, contradicted in 3D)")):
+                         ("rejected", "## Rejected (contradicted in 3D, or vetoed by the VLM)")):
         cs = [c for c in changes if c.get("status", "confirmed") == status]
         if not cs:
             continue
@@ -101,9 +101,12 @@ def main():
     ap.add_argument("a", type=Path); ap.add_argument("b", type=Path)
     ap.add_argument("-o", "--out", type=Path, default=Path("out"))
     ap.add_argument("--frames", type=int, default=FRAMES, help="frames sampled per video")
-    ap.add_argument("--detector", choices=("auto", "semantic", "geometry"), default="auto",
-                    help="semantic: VLM claims checked in 3D (needs OPENAI_API_KEY); geometry: no API; auto: "
-                         "semantic when the key is set")
+    ap.add_argument("--detector", choices=("auto", "full", "offline", "fast", "geometry"), default="auto",
+                    help="full: official SceneDiff candidates fused with VLM claims, VLM-verified (needs "
+                         "OPENAI_API_KEY or the codex CLI); offline: SceneDiff candidates named by CLIP, no API; "
+                         "fast: VLM claims only, about 2 min; geometry: the old voxel diff; auto: full when a VLM is "
+                         "available, else offline")
+    ap.add_argument("--offline", action="store_const", const="offline", dest="detector", help="same as --detector offline")
     args = ap.parse_args()
     for p in (args.a, args.b):
         if not p.is_file():
@@ -111,17 +114,20 @@ def main():
     if shutil.which("ffmpeg") is None:
         fail("ffmpeg not found, install it first (brew install ffmpeg)")
     if args.detector == "auto":
-        args.detector = "semantic" if os.environ.get("OPENAI_API_KEY") else "geometry"
-        if args.detector == "geometry":
-            print("OPENAI_API_KEY not set: using the geometry-only detector (weaker, fixed vocabulary)")
+        import vlm
+        args.detector = "full" if vlm.backend() else "offline"
+        if args.detector == "offline":
+            print("No VLM (set OPENAI_API_KEY or install codex): running offline, objects named by CLIP")
     args.out.mkdir(parents=True, exist_ok=True)
 
     try:
         A, B = cached_reconstruct(args.a, args.b, args.frames, args.out)
         grid, sa, pa, ca, pb, cb = shared_space(A, B)
-        if args.detector == "semantic":
+        if args.detector != "geometry":
             frames = [sorted((args.out / "frames" / s).glob("*.jpg")) for s in "AB"]
-            changes = semantic.detect(A, B, *frames, args.out)
+            import fusion
+            detect = {"full": fusion.full, "offline": fusion.offline, "fast": semantic.detect}[args.detector]
+            changes = detect(A, B, *frames, args.out)
             gone = [np.array(c["points"]["A"]) for c in changes if c["status"] != "rejected" and "A" in c["points"]]
             ghost = np.concatenate(gone) if gone else np.zeros((0, 3))
         else:

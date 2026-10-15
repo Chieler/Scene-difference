@@ -1,7 +1,7 @@
 # semantic.py
 """Object changes proposed by a VLM, checked by geometry.
 
-A vision-language model (OpenAI) sees both videos as labeled contact sheets and lists the objects it thinks were
+A vision-language model (vlm.py: OpenAI API or the codex CLI) sees both videos as labeled contact sheets and lists the objects it thinks were
 added, removed or moved, with a name, a sentence and a box in each frame where it shows. SAM2 turns the boxes into
 masks and VGGT depth lifts the masks into the shared 3D frame.
 
@@ -13,7 +13,7 @@ other way round, so every claim is tested in 3D against the other video:
 A claim the other video never looked at is kept as "unverified", one the geometry contradicts is "rejected", and a
 "moved" object whose two positions coincide is rejected too.
 """
-import base64, io, json, os
+import io, json, os
 from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
@@ -82,17 +82,8 @@ def ask_vlm(pa, pb, cache):
             return z["objects"]
     except Exception:
         pass
-    if not os.environ.get("OPENAI_API_KEY"):
-        raise RuntimeError("OPENAI_API_KEY is not set (or run with --detector geometry, which needs no key)")
-    from openai import OpenAI
-    url = lambda im: "data:image/jpeg;base64," + base64.b64encode(_jpeg(im)).decode()
-    content = [{"type": "text", "text": PROMPT}]
-    for v, paths in (("A", pa), ("B", pb)):
-        content += [{"type": "image_url", "image_url": {"url": url(s), "detail": "high"}} for s in sheets(paths, v)]
-    r = OpenAI().chat.completions.create(model=MODEL, messages=[{"role": "user", "content": content}],
-                                         response_format={"type": "json_schema", "json_schema": {
-                                             "name": "changes", "strict": True, "schema": SCHEMA}})
-    objects = json.loads(r.choices[0].message.content)["objects"]
+    import vlm  # OpenAI API, or the codex CLI
+    objects = vlm.ask(PROMPT, sheets(pa, "A") + sheets(pb, "B"), SCHEMA, "changes")["objects"]
     cache.write_text(json.dumps({"key": key, "objects": objects}, indent=1))
     return objects
 
@@ -204,20 +195,31 @@ def judge(kind, ev, ctx, shift, area):
 
 
 def detect(A, B, pa, pb, out):
-    """Object changes, each with label, sentence, type, status, evidence, 3D box and points, and mask crops."""
+    """The VLM's change claims, segmented and checked in 3D (see check)."""
     claims = ask_vlm(pa, pb, out / "vlm.json")
-    if not claims:
-        return []
+    return check(claim_objects(claims, segment(claims, {"A": pa, "B": pb})), A, B, pa, pb, out) if claims else []
+
+
+def claim_objects(claims, masks):
+    """VLM claims as candidate objects: {name, change, description, score, masks: {(video, frame): mask}}."""
+    return [{"name": o["name"], "change": o["change"], "description": o["description"], "score": float(o["confidence"]),
+             "masks": {(v, f): m for (kk, v, f), m in masks.items() if kk == k}} for k, o in enumerate(claims)]
+
+
+def check(objects, A, B, pa, pb, out):
+    """Each candidate object, lifted to 3D and tested against the other video, as a change with label, sentence,
+    type, status, evidence, 3D box and points, and a before/after crop. An object may carry a "veto" (a reason it
+    is rejected before any geometry, e.g. the VLM saw no change there)."""
     views, frames = {"A": A, "B": B}, {"A": pa, "B": pb}
     feats = {"A": change2d.dino(A.images), "B": change2d.dino(B.images)}
-    masks = segment(claims, frames)
     room = np.concatenate([recon.cloud(A)[0], recon.cloud(B)[0]])
     lo_room, hi_room = np.percentile(room, 2, axis=0), np.percentile(room, 98, axis=0)
     changes = []
-    for k, o in enumerate(claims):
+    for k, o in enumerate(objects):
+        masks = o["masks"]
         pts, fts, rpts, rfts, best = {}, {}, {}, {}, {}
         for v in "AB":
-            got = [(f, *lift(m, views[v], f, feats[v]), m.sum()) for (kk, vv, f), m in masks.items() if kk == k and vv == v]
+            got = [(f, *lift(m, views[v], f, feats[v]), m.sum()) for (vv, f), m in masks.items() if vv == v]
             if got and sum(len(g[1]) for g in got) >= 20:
                 cat = lambda n: np.concatenate([g[n] for g in got])
                 pts[v], fts[v], rpts[v], rfts[v] = cat(1), cat(2), cat(3), cat(4)
@@ -234,15 +236,16 @@ def detect(A, B, pa, pb, out):
         shift = None
         if kind == "moved":
             shift = float(np.linalg.norm(np.median(pts["A"], 0) - np.median(pts["B"], 0)))
-        area = np.mean([m.mean() for (kk, vv, _), m in masks.items() if kk == k and vv == here])
-        status, why = judge(kind, ev, ctx, shift, area)
+        area = np.mean([m.mean() for (vv, _), m in masks.items() if vv == here])
+        status, why = ("rejected", o["veto"]) if o.get("veto") else judge(kind, ev, ctx, shift, area)
         box = lambda P: (np.percentile(P, 5, 0).tolist(), np.percentile(P, 95, 0).tolist())
         lo, hi = box(pts[here])
         c = {"type": kind, "label": o["name"], "description": o["description"], "status": status, "why": why,
-             "score": float(o["confidence"]), "lo": lo, "hi": hi, "from_lo": None, "from_hi": None,
-             "evidence": ev[0], "context": ctx[0], "support": support(ev[0], ctx[0]), "shift_m": shift, "where": where(np.median(pts[here], 0), lo_room, hi_room),
+             "score": float(o["score"]), "source": o.get("source", "vlm"), "lo": lo, "hi": hi, "from_lo": None,
+             "from_hi": None, "evidence": ev[0], "context": ctx[0], "support": support(ev[0], ctx[0]), "shift_m": shift,
+             "where": where(np.median(pts[here], 0), lo_room, hi_room),
              "points": {v: pts[v][::max(1, len(pts[v]) // 3000)].tolist() for v in pts},
-             "frames": {v: sorted(f for (kk, vv, f) in masks if kk == k and vv == v) for v in pts}}
+             "frames": {v: sorted(f for (vv, f) in masks if vv == v) for v in pts}}
         if kind == "moved":
             c["from_lo"], c["from_hi"] = box(pts["A"])
         c["text"] = sentence(c)
@@ -261,7 +264,7 @@ def sentence(c):
     s = {"added": "Added", "removed": "Removed", "moved": "Moved"}[c["type"]] + f": {c['label']}"
     if c["type"] == "moved" and c["shift_m"] is not None:
         s += f", {c['shift_m']:.1f} m"
-    return f"{s}, {c['where']}. {c['description']}"
+    return f"{s}, {c['where']}." + (f" {c['description']}" if c["description"] else "")
 
 
 def crops(c, k, best, masks, frames, views, out):
@@ -271,7 +274,7 @@ def crops(c, k, best, masks, frames, views, out):
     for v in "AB":
         if v in best:
             im = np.asarray(Image.open(frames[v][best[v]]).convert("RGB")).copy()
-            m = masks[(k, v, best[v])]
+            m = masks[(v, best[v])]
             edge = ndimage.binary_dilation(m, iterations=max(2, im.shape[1] // 300)) & ~m  # outline, keeps true colors
             im[edge] = [255, 60, 60] if v == "A" else [60, 230, 90]
             ys, xs = np.nonzero(m)
