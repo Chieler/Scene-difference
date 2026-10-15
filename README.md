@@ -46,7 +46,8 @@ Other modes: `--detector fast` runs only the VLM claims plus the 3D check (about
   - `export OPENAI_API_KEY=...`, optional `OPENAI_MODEL` (default `gpt-5`);
   - or the [codex CLI](https://github.com/openai/codex), logged in. It is used when no key is set.
 - `bash scripts/setup_scenediff.sh` (both versions need it). It clones π³ and the SceneDiff SAM fork at pinned commits and applies the MPS patches from `scenediff_mps/patches/`. It also downloads the SAM ViT-H checkpoint (2.6 GB, sha256-checked) and the π³ and DINOv2-L weights. After that the SceneDiff stage runs without network.
-- The first run downloads the model weights: VGGT-1B, π³, SAM ViT-H, SAM2.1-base+, DINOv2-base and -large, CLIP ViT-L/14. Uses MPS when available, else CPU. Tested on an M-series Mac with 16 GB. <!-- RUNTIME: per-version time on the stand-in pair -->
+- The first run downloads the model weights: VGGT-1B, π³, SAM ViT-H, SAM2.1-base+, DINOv2-base and -large, CLIP ViT-L/14. Uses MPS when available, else CPU. Tested on an M-series Mac with 16 GB.
+- Run time on a 16 GB M2 for a pair of 30 s videos (SceneDiff `bathroom_1_bathroom_2`): reconstruction about 5.5 min, SceneDiff stage about 22 min, then the 3D check (offline, about 2 min) or VLM calls plus the check (full, about 3.5 min). Total is about 30 minutes either way; reruns use the caches and take about a minute. Peak memory is 12.7 GB, because the SceneDiff stage runs in its own process and frees its memory before the rest continues. `--detector fast` takes about 8 minutes.
 
 ## Output
 
