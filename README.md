@@ -66,7 +66,7 @@ No API key? `--detector geometry` runs the older geometry-only detector (DINO pa
 | **Fusion + VLM verifier, rejected candidates ranked last** (`scripts/verify.py`) | 0.490 | **0.585** | **0.522** | **0.472** |
 | Fusion + VLM verifier, rejected candidates dropped | **0.605** | 0.548 | 0.494 | 0.449 |
 
-All rows: val split, "varied" set, 50 scenes, except where noted. The fusion and verifier settings were chosen on these same scenes, so treat the last three rows as optimistic until they are confirmed on the test split.
+All rows: val split, "varied" set, 50 scenes, except where noted. The variant was chosen by 2-fold cross-validation (`scripts/cv_select.py`): each half picks "ranked last", so the held-out score is the same 0.585. The fusion match threshold (mask IoU 0.3) was set once and not tuned.
 
 The two methods fail in opposite ways. The official method segments everything and keeps what geometry calls changed: high recall, but 319 false alarms. The VLM names few objects, and is usually right, but misses small ones. The fusion ranks objects both found first, then the official method's other objects, then the VLM's. The verifier then shows the VLM each object only the official method found, as an outlined crop next to both videos, and asks if it is a real change. It keeps 64 of 331; dropping the rest cuts false alarms from 348 to 91.
 

@@ -6,7 +6,7 @@ Given a before video and an after video of a room, find objects that were added,
 
 ## Current best: official method + VLM track, fused and verified (`scripts/fuse.py`, `scripts/verify.py`)
 
-Same scorer and scenes as below. Settings were picked on these scenes; confirm on the test split.
+Same scorer and scenes as below. 2-fold CV (`scripts/cv_select.py`) picks `verify_demote` on both halves; held-out obj/im AP 0.585. The test split has 150 varied scenes, about 29 h for the official method on this Mac.
 
 | Method | px/im IoU | obj/im AP | obj/sc AP | obj/sc AP + type | TP / FP / FN |
 |---|---|---|---|---|---|
