@@ -89,13 +89,25 @@ Opening the file directly also works; serving the folder lets the side panel sho
 - **obj/sc AP**: the same, matched once per scene; **+ type** also requires the right added/removed/moved.
 - **px/im IoU**: pixel overlap of predicted and true change masks per frame.
 
+Against the official SceneDiff method (= the offline version), the two verifier variants trade off like this:
+
+| | Full version: rejected ranked last | Precision variant: rejected dropped |
+|---|---|---|
+| obj/im AP | **+3.7 points** (0.548 → 0.585) | ±0 (0.548) |
+| obj/sc AP + type | **+15.4 points** (0.318 → 0.472) | +13.1 points (0.449) |
+| px/im IoU | +13.6 points (0.490) | **+25.1 points** (0.605) |
+| true positives / misses | 94 → **110** / 67 → **51** | 94 → 100 / 67 → 61 |
+| false alarms | 319 → 348 (rejected ones stay, ranked last) | 319 → **91** (−71%) |
+
+The CLI gives both views: the report and viewer set rejected objects apart under "Rejected" (the precision view), while `changes.json` keeps every object with its status and score, so nothing is lost.
+
 **Is 0.585 tuned on the test data?** The variant was picked by 2-fold cross-validation (`scripts/cv_select.py`): the scenes are split in two halves, each half picks the best variant on the other half, and the two held-out halves are scored together. Both halves pick "rejected ranked last", so the held-out score is the same 0.585. The fusion match threshold (mask IoU 0.3) was set once and not tuned.
 
 The official method has high recall and 319 false alarms; the VLM is usually right but misses small objects. The fusion ranks objects both found first, then the official method's other objects, then the VLM's. The verifier shows the VLM each object only the official method found, as an outlined crop next to both videos, and asks if it is a real change. It keeps 64 of 331; dropping the rest cuts false alarms from 348 to 91 (best px/im IoU), while ranking them last keeps the recall (best AP).
 
 The VLM runs went through the `codex` CLI on the benchmark's own frames. The paper reports its numbers on the test split, so they are not directly comparable. To reproduce:
 ```
-uv run scripts/fetch_scenediff.py --list      # then fetch the val pairs to data/scenediff
+uv run scripts/fetch_scenediff.py $(cat scripts/val_pairs.txt)   # the 50 val pairs -> data/scenediff
 uv run scripts/vlm_track.py                   # -> out/pred_vlm/<scene>/object_masks.pkl
 uv run scripts/locate.py out/pred_vlm         # 3D position per object -> objects.json
 uv run python bench.py out/pred_vlm           # official scorer
