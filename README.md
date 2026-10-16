@@ -61,10 +61,12 @@ For reference, the dataset's ground truth for this pair lists four changed objec
 | `score`, `support` | ranking score (band: both detectors > SceneDiff-only > VLM-only); how far the object's change evidence exceeds its background ring |
 | `where`, `frames`, `image` | coarse position in the room; frames per video where it appears; crop path |
 
-**3D viewer.** `viewer.html` is self-contained (point clouds embedded, three.js from a CDN). GitHub shows it as source and won't render it, so download it or clone the repo, then:
+**3D viewer.** `viewer.html` is self-contained (point clouds embedded, three.js from a CDN).
 
+- **Live demo (GitHub Pages)**: [**Interactive 3D Demo (Full)**](https://chieler.github.io/Scene-difference/) | [Offline version](https://chieler.github.io/Scene-difference/offline/)
+- **Or run locally**:
 ```
-python -m http.server -d examples/full    # open http://localhost:8000/viewer.html
+python -m http.server -d docs    # open http://localhost:8000/
 ```
 
 Opening the file directly also works; serving the folder lets the side panel show the crops. Click a change to fly to it. Green = added, red = removed, blue = moved, yellow = unverified; grey points are space the other video never saw; a toggle shows the rejected claims.
