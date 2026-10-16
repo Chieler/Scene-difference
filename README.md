@@ -13,11 +13,10 @@ uv run diff.py before.mp4 after.mp4 -o out/ --offline  # offline version: same c
 
 ## Example: full (OpenAI VLM) version
 
-<!-- EXAMPLE: replace stand-in with own videos -->
-**Input** (stand-in until our own video pair is added): the SceneDiff pair `bathroom_1_bathroom_2`, copied unchanged to [`examples/input/before.MOV`](examples/input/before.MOV) and [`examples/input/after.MOV`](examples/input/after.MOV) (1920x1080 HEVC, about 9 s each, 29 MB together).
+**Input**: two phone videos of a bathroom, [`examples/input/before.mp4`](examples/input/before.mp4) and [`examples/input/after.mp4`](examples/input/after.mp4) (1080x1920 H.264, about 9 s each, 11 MB together; the SceneDiff pair `bathroom_1_bathroom_2`).
 
 ```
-uv run diff.py examples/input/before.MOV examples/input/after.MOV -o out/standin_full
+uv run diff.py examples/input/before.mp4 examples/input/after.mp4 -o examples/full
 ```
 
 **Output**, committed in [`examples/full/`](examples/full/):
