@@ -1,0 +1,356 @@
+[
+  {
+    "type": "moved",
+    "label": "Listerine mouthwash bottle",
+    "description": "The large blue bottle moved from the top of the white shelf beside the bathtub to the right side of the sink counter.",
+    "status": "confirmed",
+    "why": "moved 3.10 m",
+    "score": 2.99,
+    "source": "both",
+    "lo": [
+      -1.2115178959521207,
+      -0.4712666389547647,
+      0.019824761615794353
+    ],
+    "hi": [
+      1.8799356228918136,
+      1.068381767762996,
+      0.733928458035589
+    ],
+    "from_lo": [
+      1.7361671308979392,
+      0.7853161211311736,
+      0.5729022748454851
+    ],
+    "from_hi": [
+      2.092860487530354,
+      1.0340220900026078,
+      0.9705166523375134
+    ],
+    "evidence": {
+      "seen": 0.9682699004465566,
+      "gone": 0.5248856826848474,
+      "differs": 0.5588112473487854
+    },
+    "context": {
+      "seen": 0.9662618588724013,
+      "gone": 0.3824551141009193,
+      "differs": 0.3725990653038025
+    },
+    "support": 0.6207072734832764,
+    "shift_m": 3.104853985584424,
+    "where": "the left of the room",
+    "frames": {
+      "A": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7,
+        8,
+        9
+      ],
+      "B": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21
+      ]
+    },
+    "text": "Moved: Listerine mouthwash bottle, 3.1 m, the left of the room. The large blue bottle moved from the top of the white shelf beside the bathtub to the right side of the sink counter.",
+    "image": "changes/00.jpg"
+  },
+  {
+    "type": "removed",
+    "label": "black toothbrush",
+    "description": "It stood on the vanity beside the mirror, to the right of the sink, and is absent in video B.",
+    "status": "unverified",
+    "why": "too small to check in 3D",
+    "score": 1.83,
+    "source": "official",
+    "lo": [
+      -1.2389267774635655,
+      -0.6229275176924064,
+      -0.061398324784808486
+    ],
+    "hi": [
+      -0.7848496672221852,
+      -0.19948264684482953,
+      0.20581276692957176
+    ],
+    "from_lo": null,
+    "from_hi": null,
+    "evidence": {
+      "seen": 0.9990762124711317,
+      "gone": 0.2986666666666667,
+      "differs": 0.58219113945961
+    },
+    "context": {
+      "seen": 0.9402289928197167,
+      "gone": 0.16969949048559843,
+      "differs": 0.40273767709732056
+    },
+    "support": 0.5981782078742981,
+    "shift_m": null,
+    "where": "the left, front of the room",
+    "frames": {
+      "A": [
+        13,
+        14,
+        15,
+        16,
+        17,
+        22,
+        23
+      ]
+    },
+    "text": "Removed: black toothbrush, the left, front of the room. It stood on the vanity beside the mirror, to the right of the sink, and is absent in video B.",
+    "image": "changes/02.jpg"
+  },
+  {
+    "type": "removed",
+    "label": "small white tissue",
+    "description": "It lay on the vanity counter near the front of the sink and is absent in video B.",
+    "status": "unverified",
+    "why": "too small to check in 3D",
+    "score": 1.67,
+    "source": "official",
+    "lo": [
+      -0.30929540788646187,
+      -0.398194250863973,
+      0.00540221521612437
+    ],
+    "hi": [
+      -0.15283888973280574,
+      -0.13317527798050838,
+      0.06400710763050393
+    ],
+    "from_lo": null,
+    "from_hi": null,
+    "evidence": {
+      "seen": 1.0,
+      "gone": 0.16231251320329554,
+      "differs": 0.684411346912384
+    },
+    "context": {
+      "seen": 1.0,
+      "gone": 0.16397963512940178,
+      "differs": 0.5168724954128265
+    },
+    "support": 0.5584628383318584,
+    "shift_m": null,
+    "where": "the left of the room",
+    "frames": {
+      "A": [
+        13,
+        15,
+        16,
+        17,
+        18,
+        23
+      ]
+    },
+    "text": "Removed: small white tissue, the left of the room. It lay on the vanity counter near the front of the sink and is absent in video B.",
+    "image": "changes/03.jpg"
+  },
+  {
+    "type": "added",
+    "label": "small round toiletry item",
+    "description": "It sits at the back right of the vanity counter, beside the green pump bottle, and is absent in video A.",
+    "status": "unverified",
+    "why": "too small to check in 3D",
+    "score": 1.62,
+    "source": "official",
+    "lo": [
+      -1.3123976518009062,
+      0.23668703871910357,
+      -0.02087956395828967
+    ],
+    "hi": [
+      -1.1981693471861397,
+      0.37028614234407725,
+      0.024764716208773595
+    ],
+    "from_lo": null,
+    "from_hi": null,
+    "evidence": {
+      "seen": 1.0,
+      "gone": 0.0,
+      "differs": 0.6850109100341797
+    },
+    "context": {
+      "seen": 0.9957081545064378,
+      "gone": 0.0006108735491753207,
+      "differs": 0.5879732966423035
+    },
+    "support": 0.3234587113062541,
+    "shift_m": null,
+    "where": "the left of the room",
+    "frames": {
+      "B": [
+        2,
+        4,
+        5
+      ]
+    },
+    "text": "Added: small round toiletry item, the left of the room. It sits at the back right of the vanity counter, beside the green pump bottle, and is absent in video A.",
+    "image": "changes/04.jpg"
+  },
+  {
+    "type": "added",
+    "label": "Blue-and-white carton",
+    "description": "A blue-and-white carton stands on the second level of the white shelf beside the bathtub, in front of the taller toiletries.",
+    "status": "rejected",
+    "why": "the other video sees the same thing there",
+    "score": 2.85,
+    "source": "both",
+    "lo": [
+      1.220018074363567,
+      1.0506084444126094,
+      -0.5560906700246859
+    ],
+    "hi": [
+      1.867891114024922,
+      1.448076656165228,
+      0.2645422691611728
+    ],
+    "from_lo": null,
+    "from_hi": null,
+    "evidence": {
+      "seen": 0.761992393571341,
+      "gone": 0.3228788326295371,
+      "differs": 0.4733222723007202
+    },
+    "context": {
+      "seen": 0.7021908458592753,
+      "gone": 0.2927208023293433,
+      "differs": 0.34588414430618286
+    },
+    "support": 0.4247937599817912,
+    "shift_m": null,
+    "where": "the right, back of the room",
+    "frames": {
+      "B": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ]
+    },
+    "text": "Added: Blue-and-white carton, the right, back of the room. A blue-and-white carton stands on the second level of the white shelf beside the bathtub, in front of the taller toiletries.",
+    "image": "changes/01.jpg"
+  },
+  {
+    "type": "added",
+    "label": "mirror edge",
+    "description": "The outlined edge of the mirror above the vanity stays in the same place relative to the sink.",
+    "status": "rejected",
+    "why": "the VLM sees no change here",
+    "score": 1.04,
+    "source": "official",
+    "lo": [
+      -1.4583150709450312,
+      -0.5268984126081024,
+      0.09656937029194458
+    ],
+    "hi": [
+      -0.8561376691649638,
+      -0.3379654560075618,
+      0.9151274508913921
+    ],
+    "from_lo": null,
+    "from_hi": null,
+    "evidence": {
+      "seen": 1.0,
+      "gone": 0.8696815305769722,
+      "differs": 0.4076749086380005
+    },
+    "context": {
+      "seen": 0.9945857101421252,
+      "gone": 0.7597674418604651,
+      "differs": 0.33610379695892334
+    },
+    "support": 0.2385703722635905,
+    "shift_m": null,
+    "where": "the left, front of the room",
+    "frames": {
+      "B": [
+        10
+      ]
+    },
+    "text": "Added: mirror edge, the left, front of the room. The outlined edge of the mirror above the vanity stays in the same place relative to the sink.",
+    "image": "changes/05.jpg"
+  },
+  {
+    "type": "added",
+    "label": "White Aveeno lotion bottle",
+    "description": "A white Aveeno bottle sits near the front right corner of the sink counter, beside the mouthwash.",
+    "status": "rejected",
+    "why": "the other video sees the same thing there",
+    "score": 0.95,
+    "source": "vlm",
+    "lo": [
+      -1.230688809146376,
+      0.04442638523593358,
+      -0.026651124145902396
+    ],
+    "hi": [
+      -0.7920047668380629,
+      0.3467673627970512,
+      0.2610053648263542
+    ],
+    "from_lo": null,
+    "from_hi": null,
+    "evidence": {
+      "seen": 1.0,
+      "gone": 0.2801493619291215,
+      "differs": 0.40626662969589233
+    },
+    "context": {
+      "seen": 1.0,
+      "gone": 0.16600367013557113,
+      "differs": 0.4138168692588806
+    },
+    "support": 0.11414569179355036,
+    "shift_m": null,
+    "where": "the left of the room",
+    "frames": {
+      "B": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    "text": "Added: White Aveeno lotion bottle, the left of the room. A white Aveeno bottle sits near the front right corner of the sink counter, beside the mouthwash.",
+    "image": "changes/07.jpg"
+  }
+]
