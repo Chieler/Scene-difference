@@ -2,7 +2,7 @@
 
 [![Interactive 3D Demo](https://img.shields.io/badge/Demo-Interactive%203D%20Viewer-00B0FF?style=flat-square&logo=three.js&logoColor=white)](https://chieler.github.io/Scene-difference/)
 [![SceneDiff Benchmark](https://img.shields.io/badge/SceneDiff%20Val-0.585%20AP-success?style=flat-square)](https://github.com/yuqunw/scene_diff)
-[![Segmentation IoU](https://img.shields.io/badge/Mask%20IoU-0.605%20px%2Fim-blueviolet?style=flat-square)](#-benchmark-on-scenediff)
+[![Segmentation IoU](https://img.shields.io/badge/Mask%20IoU-0.605%20px%2Fim-blueviolet?style=flat-square)](#benchmark-on-scenediff)
 [![Hardware](https://img.shields.io/badge/Platform-Apple%20Silicon%20MPS%20%7C%20CUDA-black?style=flat-square&logo=apple)](scenediff_mps/)
 [![Offline Capable](https://img.shields.io/badge/Offline%20Mode-100%25%20Local-orange?style=flat-square)](#running-change-detection)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square)](#licenses--attribution)
@@ -17,8 +17,8 @@
 
 | Experience | Engine | Description | Launch Link |
 |---|---|---|---|
-| 🌐 **Full 3D Viewer** | OpenAI VLM + SceneDiff + SAM 2.1 | Full semantic naming, natural language descriptions, and 3D bounding boxes | [**Launch Online Demo**](https://chieler.github.io/Scene-difference/) |
-| ⚡ **Offline 3D Viewer** | 100% Local (SceneDiff MPS + CLIP) | Zero API calls, local zero-shot classification, and geometric verification | [**Launch Offline Demo**](https://chieler.github.io/Scene-difference/offline/) |
+| **Full 3D Viewer** | OpenAI VLM + SceneDiff + SAM 2.1 | Full semantic naming, natural language descriptions, and 3D bounding boxes | [**Launch Online Demo**](https://chieler.github.io/Scene-difference/) |
+| **Offline 3D Viewer** | 100% Local (SceneDiff MPS + CLIP) | Zero API calls, local zero-shot classification, and geometric verification | [**Launch Offline Demo**](https://chieler.github.io/Scene-difference/offline/) |
 
 *(Or inspect locally after cloning: `python -m http.server -d docs` and open `http://localhost:8000`)*
 
@@ -30,14 +30,14 @@ uv run diff.py before.mp4 after.mp4 -o out/ --offline  # Offline mode: 100% loca
 
 ---
 
-## 🎯 Headline Detection
+## Headline Detection
 
 ![Moved 3.10 m: Listerine mouthwash bottle](docs/headline.jpg)
 *Headline detection from the example pair (`bathroom_1_bathroom_2`): a mouthwash bottle moved from the shelf beside the bathtub to the vanity sink counter. The red contour identifies where the object was located in the before video; the green contour marks its new position in the after video, with a physical displacement of **3.10 meters** measured in metric space.*
 
 ---
 
-## 🌐 Interactive 3D Viewer & Visual Encoding
+## Interactive 3D Viewer & Visual Encoding
 
 The browser-based viewer renders point clouds from both trajectories, camera paths, 3D bounding boxes, and displacement vectors in real time.
 
@@ -45,11 +45,11 @@ The browser-based viewer renders point clouds from both trajectories, camera pat
 
 | Status | 3D Color | Meaning & Verification Verdict |
 |---|:---:|---|
-| **Added** | 🟢 Green | Object present only in Video B; Video A rays prove the space was empty. |
-| **Removed** | 🔴 Red | Object present only in Video A; rendered as a 3D ghost cloud in the after model. |
-| **Moved** | 🔵 Blue | Object displaced across videos; connected by a metric 3D displacement vector. |
-| **Unverified** | 🟡 Yellow | Object too small to verify in 3D (<0.5% frame), or alternate video never panned across that voxel. |
-| **Unobserved** | ⚪ Grey | Background regions never observed by the alternate camera trajectory. |
+| **Added** | Green | Object present only in Video B; Video A rays prove the space was empty. |
+| **Removed** | Red | Object present only in Video A; rendered as a 3D ghost cloud in the after model. |
+| **Moved** | Blue | Object displaced across videos; connected by a metric 3D displacement vector. |
+| **Unverified** | Yellow | Object too small to verify in 3D (<0.5% frame), or alternate video never panned across that voxel. |
+| **Unobserved** | Grey | Background regions never observed by the alternate camera trajectory. |
 
 ### Navigation Controls
 - **Select an object**: Click any change card in the left sidebar to fly the camera directly to its 3D bounding box and display the before/after crop.
@@ -61,7 +61,7 @@ The browser-based viewer renders point clouds from both trajectories, camera pat
 
 ---
 
-## 📊 Benchmark on SceneDiff
+## Benchmark on SceneDiff
 
 Evaluated on all 50 scenes of the official [SceneDiff](https://github.com/yuqunw/scene_diff) validation split (`varied` subset) using the official competition evaluator ([`bench.py`](bench.py)):
 
@@ -107,7 +107,7 @@ uv run scripts/cv_select.py
 
 ---
 
-## 🔍 Walkthrough & Visual Verification
+## Walkthrough & Visual Verification
 
 **Input Data:** Casual smartphone videos of a bathroom: [`examples/input/before.mp4`](examples/input/before.mp4) and [`examples/input/after.mp4`](examples/input/after.mp4) (1080×1920 H.264, 9 seconds each, 11 MB total).
 
@@ -146,7 +146,7 @@ Every confirmed detection includes an automated natural-language summary:
 
 ---
 
-## ⚙️ How It Works
+## How It Works
 
 ```
 Video A (Before) ──┐
@@ -175,7 +175,7 @@ Video B (After)  ──┘            │
 
 ---
 
-## 🚀 Quickstart & Setup
+## Quickstart & Setup
 
 ### Prerequisites
 - **Operating System**: macOS (Apple Silicon M1/M2/M3/M4 recommended) or Linux.
@@ -220,7 +220,7 @@ uv run diff.py before.mp4 after.mp4 -o out/ --detector fast
 
 ---
 
-## 📂 Output Artifacts
+## Output Artifacts
 
 Running `diff.py` populates the output directory with complete visual and machine-readable artifacts:
 
@@ -257,7 +257,7 @@ out/
 
 ---
 
-## 📁 Repository Architecture
+## Repository Architecture
 
 | Component | Path | Primary Responsibility |
 |---|---|---|
@@ -274,7 +274,7 @@ out/
 
 ---
 
-## 📜 Licenses & Attribution
+## Licenses & Attribution
 
 - **SceneDiff**: MIT License (Yuqun Wu et al.). Ported to Apple Silicon MPS under [`scenediff_mps/`](scenediff_mps/). See [`scenediff_mps/NOTICE.md`](scenediff_mps/NOTICE.md).
 - **$\pi^3$**: Non-commercial research license.
