@@ -1,240 +1,236 @@
-# What Changed in the Room?
+<h1 align="center">Scene Difference</h1>
 
-[![Interactive 3D Demo](https://img.shields.io/badge/Demo-Interactive%203D%20Viewer-00B0FF?style=flat-square&logo=three.js&logoColor=white)](https://chieler.github.io/Scene-difference/)
-[![SceneDiff Benchmark](https://img.shields.io/badge/SceneDiff%20Val-0.585%20AP-success?style=flat-square)](https://github.com/yuqunw/scene_diff)
-[![Segmentation IoU](https://img.shields.io/badge/Mask%20IoU-0.605%20px%2Fim-blueviolet?style=flat-square)](#benchmark-on-scenediff)
-[![Hardware](https://img.shields.io/badge/Platform-Apple%20Silicon%20MPS%20%7C%20CUDA-black?style=flat-square&logo=apple)](scenediff_mps/)
-[![Offline Capable](https://img.shields.io/badge/Offline%20Mode-100%25%20Local-orange?style=flat-square)](#running-change-detection)
-[![License](https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square)](#licenses--attribution)
+<p align="center">
+  <strong>Two phone videos of a room, taken at different times. Find every object that was added, removed or moved, in 3D.</strong>
+</p>
 
-> **Given two casual handheld smartphone videos of an indoor scene recorded at different times, detect every object added, removed, or moved in 3D.**
-> 
-> The system jointly reconstructs both video trajectories into a single gravity-aligned metric coordinate frame, cross-verifies candidate proposals using 3D ray carving and DINOv2 feature residuals, and outputs natural-language explanations alongside an interactive 3D WebGL viewer.
+<p align="center">
+  <a href="https://chieler.github.io/Scene-difference/"><img alt="Live demo" src="https://img.shields.io/badge/demo-interactive%203D-00B0FF?logo=three.js&logoColor=white"></a>
+  <a href="#benchmark"><img alt="SceneDiff val 0.585 obj/im AP" src="https://img.shields.io/badge/SceneDiff%20val-0.585%20AP-success"></a>
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white">
+  <img alt="Apple Silicon MPS | CUDA" src="https://img.shields.io/badge/runs%20on-Apple%20Silicon%20%7C%20CUDA-black?logo=apple">
+  <a href="#run-it"><img alt="Offline mode" src="https://img.shields.io/badge/offline%20mode-100%25%20local-orange"></a>
+</p>
 
----
+<p align="center">
+  <a href="https://chieler.github.io/Scene-difference/">
+    <img src="docs/demo.gif" alt="Orbiting the merged point cloud of a bathroom; the sidebar shows the detected change: a Listerine bottle moved 3.10 m" width="900">
+  </a>
+  <br>
+  <sub>The merged point cloud from both videos. Click through to orbit it yourself.</sub>
+</p>
 
-### Interactive 3D Web Demos (Zero Installation Required)
+<p align="center">
+  <a href="#try-it">Try it</a> ·
+  <a href="#example">Example</a> ·
+  <a href="#benchmark">Benchmark</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#run-it">Run it</a> ·
+  <a href="#output">Output</a>
+</p>
 
-| Experience | Engine | Description | Launch Link |
-|---|---|---|---|
-| **Full 3D Viewer** | OpenAI VLM + SceneDiff + SAM 2.1 | Full semantic naming, natural language descriptions, and 3D bounding boxes | [**Launch Online Demo**](https://chieler.github.io/Scene-difference/) |
-| **Offline 3D Viewer** | 100% Local (SceneDiff MPS + CLIP) | Zero API calls, local zero-shot classification, and geometric verification | [**Launch Offline Demo**](https://chieler.github.io/Scene-difference/offline/) |
+Both videos are reconstructed into one gravity-aligned, metric 3D frame. Candidate changes from a geometric detector and a vision-language model are cross-checked with 3D ray carving and DINOv2 feature residuals. Every result comes with a plain-English description and an interactive WebGL viewer.
 
-*(Or inspect locally after cloning: `python -m http.server -d docs` and open `http://localhost:8000`)*
+## Features
 
-```bash
-# Run detection end-to-end on your own smartphone videos:
-uv run diff.py before.mp4 after.mp4 -o out/            # Full mode: SceneDiff + OpenAI VLM
-uv run diff.py before.mp4 after.mp4 -o out/ --offline  # Offline mode: 100% local, CLIP labeling
-```
+- **One shared 3D world.** A single joint VGGT pass places both videos in the same metric frame, with no drift and no ICP.
+- **Two detectors, fused.** SceneDiff's geometric recall plus a VLM's semantic precision, matched by IoU.
+- **Checked in 3D.** The other video's camera rays confirm a change, or prove the object was there all along.
+- **Honest about uncertainty.** Changes too small or never seen from the other video are marked *unverified*, not guessed.
+- **Runs fully offline.** SceneDiff on Apple Silicon MPS plus CLIP naming, with no API calls.
+- **Shareable results.** A single-file Three.js viewer, a Markdown report and `changes.json`.
 
----
+## Try it
 
-## Headline Detection
+No install needed:
+
+| Viewer | Engine | What you get |
+|---|---|---|
+| [**Full demo**](https://chieler.github.io/Scene-difference/) | OpenAI VLM + SceneDiff + SAM 2.1 | Named objects, descriptions and 3D boxes |
+| [**Offline demo**](https://chieler.github.io/Scene-difference/offline/) | SceneDiff MPS + CLIP, fully local | Zero-shot labels and geometric checks, no API calls |
+
+Or serve them after cloning: `python -m http.server -d docs`, then open `http://localhost:8000`.
+
+| Color | Status | Meaning |
+|:---:|---|---|
+| 🟩 | **Added** | Only in video B; video A's rays show the space was empty |
+| 🟥 | **Removed** | Only in video A; drawn as a ghost cloud in the after model |
+| 🟦 | **Moved** | In both, displaced; joined by a metric 3D vector |
+| 🟨 | **Unverified** | Under 0.5% of the frame, or the other video never looked there |
+| ⬜ | **Unobserved** | Background the other camera never saw |
+
+<details>
+<summary><b>Viewer controls</b></summary>
+
+- **Select an object:** click a change card in the sidebar to fly the camera to its 3D box and show the before/after crop.
+- **Camera:** left-drag to orbit, right-drag to pan, scroll to zoom.
+- **Views:** `Diff` shows the merged cloud with grey unobserved regions and red ghost points. `Video A` / `Video B` show one trajectory each.
+- **Show claims rejected by geometry:** toggles candidates ruled out by 3D ray carving.
+
+</details>
+
+## Example
+
+The bundled bathroom pair ([`before.mp4`](examples/input/before.mp4), [`after.mp4`](examples/input/after.mp4); 1080×1920, 9 s each) has one real change:
 
 ![Moved 3.10 m: Listerine mouthwash bottle](docs/headline.jpg)
-*Headline detection from the example pair (`bathroom_1_bathroom_2`): a mouthwash bottle moved from the shelf beside the bathtub to the vanity sink counter. The red contour identifies where the object was located in the before video; the green contour marks its new position in the after video, with a physical displacement of **3.10 meters** measured in metric space.*
 
----
+<sub>The mouthwash bottle moved from the shelf beside the bathtub to the sink counter. Red outlines where it was in the before video; green is where it is now, **3.10 m** away.</sub>
 
-## Interactive 3D Viewer & Visual Encoding
-
-The browser-based viewer renders point clouds from both trajectories, camera paths, 3D bounding boxes, and displacement vectors in real time.
-
-### 3D Status Encoding & Legend
-
-| Status | 3D Color | Meaning & Verification Verdict |
-|---|:---:|---|
-| **Added** | Green | Object present only in Video B; Video A rays prove the space was empty. |
-| **Removed** | Red | Object present only in Video A; rendered as a 3D ghost cloud in the after model. |
-| **Moved** | Blue | Object displaced across videos; connected by a metric 3D displacement vector. |
-| **Unverified** | Yellow | Object too small to verify in 3D (<0.5% frame), or alternate video never panned across that voxel. |
-| **Unobserved** | Grey | Background regions never observed by the alternate camera trajectory. |
-
-### Navigation Controls
-- **Select an object**: Click any change card in the left sidebar to fly the camera directly to its 3D bounding box and display the before/after crop.
-- **Camera controls**: Left-click + drag to orbit; right-click + drag to pan; scroll wheel to zoom.
-- **View modes**:
-  - `Diff`: Shows the merged point cloud with grey unobserved regions and red ghost points.
-  - `Video A` / `Video B`: Isolated single-trajectory point clouds.
-  - `Show claims rejected by geometry`: Toggle candidate detections ruled out as false alarms by 3D ray carving.
-
----
-
-## Benchmark on SceneDiff
-
-Evaluated on all 50 scenes of the official [SceneDiff](https://github.com/yuqunw/scene_diff) validation split (`varied` subset) using the official competition evaluator ([`bench.py`](bench.py)):
-
-![obj/im AP progression](docs/benchmark.png)
-
-| Method | `obj/im AP` *(Main)* | `obj/sc AP` | `obj/sc AP + type` | `px/im IoU` | TP / FP / FN |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Official SceneDiff (MPS port, DINOv2-L) (= **Offline**) | 0.548 | 0.400 | 0.318 | 0.354 | 94 / 319 / 67 |
-| VLM Track standalone (VLM proposals + SAM2 masks) | 0.322 | 0.323 | 0.284 | 0.520 | 69 / 45 / 92 |
-| **Fusion + VLM Verifier (Demote Rejected)** (= **Full / Online**) | **0.585** | **0.522** | **0.472** | 0.490 | **110** / 348 / **51** |
-| **Fusion + VLM Verifier (Drop Rejected)** | 0.548 | 0.494 | 0.449 | **0.605** | 100 / **91** / 61 |
-| Geometry baseline (VGGT + DINOv2 patch diff, 1 scene) | 0.024 | 0.125 | — | 0.008 | — |
-
-- **`obj/im AP`** (Primary Competition Metric): Average precision of changed-object detection matched per frame.
-- **`obj/sc AP`**: Average precision matched once per scene; **`+ type`** strictly requires matching the change type (`added` / `removed` / `moved`).
-- **`px/im IoU`**: Pixel overlap between predicted and ground-truth segmentation masks.
-
-### Key Scientific Insights
-
-1. **New State-of-the-Art AP (`0.585 obj/im AP`, +3.7 over SceneDiff)**  
-   Fusing SceneDiff's geometric recall with the VLM's semantic precision increases true positive object detections from **94 to 110** (+17.0% relative gain) and boosts scene-level classified accuracy from **0.318 to 0.472** (+15.4 percentage points).
-2. **71.5% False Alarm Reduction (`0.605 px/im IoU`, +25.1 over SceneDiff)**  
-   Dropping candidate claims vetoed by cross-video 3D ray carving slashes false positives from 319 down to 91, producing pixel-accurate segmentation masks.
-3. **Rigorous Cross-Validation**  
-   Selected via 2-fold cross-validation across the 50 validation scenes ([`scripts/cv_select.py`](scripts/cv_select.py)). Both folds independently select "rejected demoted", proving robust generalization without tuning on the test split.
-
-### Reproducing the Benchmark
-```bash
-# 1. Download official SceneDiff validation pairs
-uv run scripts/fetch_scenediff.py $(cat scripts/val_pairs.txt)
-
-# 2. Run VLM track proposals
-uv run scripts/vlm_track.py
-
-# 3. Score standalone baselines and fusion variants
-uv run python bench.py out/pred_vlm
-uv run scripts/fuse.py
-uv run scripts/verify.py
-
-# 4. Run 2-fold cross-validation selection
-uv run scripts/cv_select.py
-```
-
----
-
-## Walkthrough & Visual Verification
-
-**Input Data:** Casual smartphone videos of a bathroom: [`examples/input/before.mp4`](examples/input/before.mp4) and [`examples/input/after.mp4`](examples/input/after.mp4) (1080×1920 H.264, 9 seconds each, 11 MB total).
+> *"The large blue bottle moved from the top of the white shelf beside the bathtub to the right side of the sink counter."*
+> — generated description
 
 ```bash
 uv run diff.py examples/input/before.mp4 examples/input/after.mp4 -o out/
 ```
 
-### Detection Ledger
-
-| Status | Change | Object (Semantic Label) | Metric Measurement | Verification Evidence & Mechanism |
+| Status | Change | Object | Shift | Why |
 |---|:---:|---|:---:|---|
-| **Confirmed** | `moved` | Listerine mouthwash bottle | **3.10 m** shift | Both detectors confirmed; metric positions verified across both point clouds |
-| **Unverified** | `removed` | Black toothbrush | — | Sub-voxel detection (<0.5% frame); named by VLM but too small for 3D ray test |
-| **Unverified** | `removed` | Small white tissue | — | Sub-voxel detection; too small for 3D ray carving |
-| **Unverified** | `added` | Small round toiletry item | — | Sub-voxel detection; alternate camera never traversed optical angle |
-| **Rejected** | `added` | Blue-and-white carton | — | **3D Ray Rejection**: Alternate video's camera rays prove object was already there |
-| **Rejected** | `added` | Mirror edge reflection | — | **VLM Verifier**: Identified as a viewpoint-dependent specular artifact |
-| **Rejected** | `added` | White Aveeno lotion bottle | — | **3D Ray Rejection**: Spatial voxel occupied in both passes |
+| ✅ Confirmed | `moved` | Listerine mouthwash bottle | **3.10 m** | Both detectors agree; old and new positions verified in both clouds |
+| ❔ Unverified | `removed` | Black toothbrush | — | Under 0.5% of the frame; too small for the ray test |
+| ❔ Unverified | `removed` | Small white tissue | — | Too small for ray carving |
+| ❔ Unverified | `added` | Small round toiletry item | — | The other camera never covered that angle |
+| ❌ Rejected | `added` | Blue-and-white carton | — | 3D rays show it was already there |
+| ❌ Rejected | `added` | Mirror edge reflection | — | VLM verifier: viewpoint-dependent specular artifact |
+| ❌ Rejected | `added` | White Aveeno lotion bottle | — | Same voxels occupied in both passes |
 
-### Visual Inspection: Honest Uncertainty & Rejection
+<details>
+<summary><b>See the unverified and rejected crops</b></summary>
 
-The system transparently segregates what is verified from what is sub-resolution or disproven:
-
-| Sub-Resolution Detection (`Unverified`) | Geometric Ray Rejection (`Rejected`) |
+| Too small to verify | Rejected by ray carving |
 |:---:|:---:|
 | ![Removed: black toothbrush](examples/full/changes/02.jpg) | ![Rejected: blue-and-white carton](examples/full/changes/01.jpg) |
-| **Black toothbrush (Removed)**<br>*Too small (<0.5% of frame) to establish multi-view ray carving; preserved as unverified candidate.* | **Blue-and-white carton (False Alarm)**<br>*Cross-video ray projection reveals identical voxel occupancy; correctly vetoed.* |
+| **Black toothbrush.** Under 0.5% of the frame, so it is kept as an unverified candidate. | **Blue-and-white carton.** Rays from the other video find the same voxels occupied. |
 
-| Specular Artifact Veto (`Rejected`) | Occlusion Continuity (`Rejected`) |
+| Specular artifact | Unchanged object |
 |:---:|:---:|
 | ![Rejected: mirror edge](examples/full/changes/05.jpg) | ![Rejected: Aveeno bottle](examples/full/changes/07.jpg) |
-| **Mirror edge reflection (Artifact)**<br>*Viewpoint shift caused specular contrast delta; VLM verifier vetoes proposal.* | **White Aveeno lotion (Unchanged)**<br>*Point cloud carving proves object was stationary across both recordings.* |
+| **Mirror edge.** A viewpoint shift changed the reflection; the VLM verifier vetoes it. | **Aveeno lotion.** Ray carving shows it never moved. |
 
-Every confirmed detection includes an automated natural-language summary:
-> *"The large blue bottle moved from the top of the white shelf beside the bathtub to the right side of the sink counter."*
+</details>
 
----
+## Benchmark
 
-## How It Works
+All 50 scenes of the official [SceneDiff](https://github.com/yuqunw/scene_diff) validation split (`varied` subset), scored with the official evaluator ([`bench.py`](bench.py)):
 
-```
-Video A (Before) ──┐
-                   ├─► [1] Joint 3D Reconstruction (VGGT) ─────► Shared Metric Gravity-Aligned World
-Video B (After)  ──┘            │
-                                ├─► [2] Geometry Proposals ─────► SceneDiff (Apple Silicon MPS + DINOv2-L)
-                                │
-                                ├─► [3] Semantic Proposals ─────► OpenAI VLM + SAM 2.1 Mask Generation
-                                │
-                                ├─► [4] Candidate Fusion ───────► IoU Matching (≥ 0.3) & Demoted Rejections
-                                │
-                                ├─► [5] 3D Ray Verification ────► Free Space Carving & DINOv2 Residuals
-                                │
-                                └─► [6] Deliverable Generation ─► changes.json, report.md, viewer.html
-```
+![obj/im AP progression](docs/benchmark.png)
 
-1. **Joint Metric Reconstruction ([`recon.py`](recon.py))**: Runs a single joint forward pass of VGGT over both sequences (24 synchronized frames each). Both trajectories are embedded into a single coordinate system with zero drift or iterative ICP. RANSAC floor estimation computes real-world metric scale and the gravity-up vector.
-2. **Dense Geometric Proposals ([`official.py`](official.py))**: An Apple Silicon MPS port of SceneDiff (`scenediff_mps/`) computes dense candidate difference masks from point cloud residuals and DINOv2 features.
-3. **Semantic Proposals & Tracking ([`semantic.py`](semantic.py), [`vlm.py`](vlm.py))**: Time-stamped contact sheets are processed by the VLM to propose candidate changes, labels, and bounding boxes, tracked into precise segmentation masks using SAM 2.1.
-4. **Candidate Fusion ([`fusion.py`](fusion.py))**: Cross-associates 2D semantic proposals with 3D geometric candidate clusters.
-5. **3D Ray Carving & Verification ([`semantic.py`](semantic.py))**: Probes the alternate video's camera rays against the target bounding voxels:
-   - **Unobserved**: Ray paths never intersected the target region $\rightarrow$ marked *Unverified*.
-   - **Free Space Carved**: Alternate video rays pass through the region into empty space $\rightarrow$ strong confirmation.
-   - **Feature Residual**: DINOv2 patch descriptors differ significantly from the local background noise floor $\rightarrow$ *Confirmed*.
-6. **Packaging & Delivery ([`viewer.py`](viewer.py))**: Compiles point clouds, camera frustums, and bounding boxes into a self-contained zero-dependency Three.js WebGL application alongside structured reports.
+| Method | `obj/im AP` | `obj/sc AP` | `+ type` | `px/im IoU` | TP / FP / FN |
+|---|:---:|:---:|:---:|:---:|:---:|
+| SceneDiff, MPS port, DINOv2-L (= **offline**) | 0.548 | 0.400 | 0.318 | 0.354 | 94 / 319 / 67 |
+| VLM track alone (VLM proposals + SAM 2 masks) | 0.322 | 0.323 | 0.284 | 0.520 | 69 / 45 / 92 |
+| **Fusion + verifier, demote rejected** (= **full**) | **0.585** | **0.522** | **0.472** | 0.490 | **110** / 348 / **51** |
+| Fusion + verifier, drop rejected | 0.548 | 0.494 | 0.449 | **0.605** | 100 / **91** / 61 |
+| Geometry baseline (VGGT + DINOv2 patch diff, 1 scene) | 0.024 | 0.125 | — | 0.008 | — |
 
----
+> [!NOTE]
+> **`obj/im AP`** is the main competition metric: changed-object detection matched per frame. **`obj/sc AP`** matches once per scene, and **`+ type`** also requires the right change type. **`px/im IoU`** is mask overlap with ground truth.
 
-## Quickstart & Setup
+**What the numbers show**
 
-### Prerequisites
-- **Operating System**: macOS (Apple Silicon M1/M2/M3/M4 recommended) or Linux.
-- **Python**: $\ge$ 3.10 with [`uv`](https://github.com/astral-sh/uv) installed.
-- **System Tools**: `ffmpeg` installed on your system PATH (`brew install ffmpeg` on macOS, `sudo apt install ffmpeg` on Ubuntu).
+- **More objects found.** Fusion lifts `obj/im AP` from 0.548 to **0.585** (+3.7) and true positives from 94 to **110**. Scene-level typed accuracy rises from 0.318 to **0.472**.
+- **Far fewer false alarms.** Dropping claims vetoed by 3D ray carving cuts false positives from 319 to **91** (−71.5%) and lifts mask IoU to **0.605**.
+- **Not tuned on the test set.** The variant was picked by 2-fold cross-validation ([`scripts/cv_select.py`](scripts/cv_select.py)); both folds chose "demote rejected".
 
-### Installation
+<details>
+<summary><b>Reproduce the benchmark</b></summary>
+
 ```bash
-# 1. Clone repository
-git clone https://github.com/chieler/humanoids-challenge.git
-cd humanoids-challenge
+# 1. Download the official SceneDiff validation pairs
+uv run scripts/fetch_scenediff.py $(cat scripts/val_pairs.txt)
 
-# 2. Sync virtual environment dependencies with uv
+# 2. Run VLM track proposals
+uv run scripts/vlm_track.py
+
+# 3. Score the standalone baselines and fusion variants
+uv run python bench.py out/pred_vlm
+uv run scripts/fuse.py
+uv run scripts/verify.py
+
+# 4. Pick the variant with 2-fold cross-validation
+uv run scripts/cv_select.py
+```
+
+</details>
+
+## How it works
+
+```mermaid
+flowchart LR
+  A[Video A<br/>before] --> R
+  B[Video B<br/>after] --> R
+  R["1 · Joint reconstruction<br/>VGGT, metric + gravity-up"] --> G["2 · Geometry proposals<br/>SceneDiff MPS + DINOv2-L"]
+  R --> S["3 · Semantic proposals<br/>VLM + SAM 2.1 masks"]
+  G --> F["4 · Fusion<br/>IoU ≥ 0.3"]
+  S --> F
+  F --> V["5 · 3D verification<br/>ray carving + DINOv2 residuals"]
+  V --> O["6 · Output<br/>viewer.html · report.md · changes.json"]
+```
+
+| Stage | Code | What happens |
+|---|---|---|
+| 1. Joint reconstruction | [`recon.py`](recon.py) | One VGGT forward pass over 24 frames from each video puts both in one frame. RANSAC floor fitting gives metric scale and the up vector. |
+| 2. Geometry proposals | [`official.py`](official.py) | An Apple Silicon MPS port of SceneDiff ([`scenediff_mps/`](scenediff_mps/)) turns point-cloud and DINOv2 residuals into candidate masks. |
+| 3. Semantic proposals | [`semantic.py`](semantic.py), [`vlm.py`](vlm.py) | The VLM reads time-stamped contact sheets and proposes changes, labels and boxes; SAM 2.1 tracks them into masks. |
+| 4. Fusion | [`fusion.py`](fusion.py) | Matches 2D semantic proposals to 3D geometric clusters. |
+| 5. Verification | [`semantic.py`](semantic.py) | Casts the other video's camera rays at each candidate's voxels (below). |
+| 6. Output | [`viewer.py`](viewer.py) | Packs point clouds, camera frustums and boxes into a self-contained Three.js viewer plus reports. |
+
+Ray verdicts in stage 5:
+
+| Rays from the other video… | Verdict |
+|---|---|
+| never reach the region | *Unverified* |
+| pass through it into empty space | Strong confirmation |
+| see DINOv2 features well above the local noise floor | *Confirmed* |
+
+## Run it
+
+**Needs:** macOS (Apple Silicon recommended) or Linux, Python 3.10+ with [`uv`](https://github.com/astral-sh/uv), and `ffmpeg` on `PATH` (`brew install ffmpeg` or `sudo apt install ffmpeg`).
+
+```bash
+git clone https://github.com/Chieler/Scene-difference.git
+cd Scene-difference
 uv sync
-
-# 3. Download pretrained weights (SAM ViT-H, π³, and DINOv2)
-bash scripts/setup_scenediff.sh
+bash scripts/setup_scenediff.sh   # downloads SAM ViT-H, π³ and DINOv2 weights
 ```
 
-### Running Change Detection
+| Mode | Command | Notes |
+|---|---|---|
+| **Full** | `uv run diff.py before.mp4 after.mp4 -o out/` | Most accurate. Needs `OPENAI_API_KEY` or the `codex` CLI |
+| **Offline** | `uv run diff.py before.mp4 after.mp4 -o out/ --offline` | Fully local; SceneDiff MPS + CLIP names |
+| **Fast** | `uv run diff.py before.mp4 after.mp4 -o out/ --detector fast` | About 8 minutes; skips dense geometry |
 
-```bash
-# Mode 1: Full Online Pipeline (Highest accuracy, requires OpenAI API key)
-export OPENAI_API_KEY="sk-..."
-uv run diff.py before.mp4 after.mp4 -o out/
+> [!TIP]
+> With no flag, `diff.py` runs **full** when a VLM backend is available and falls back to **offline** otherwise.
 
-# Mode 2: 100% Offline Local Pipeline (Zero API keys, local CLIP + SceneDiff MPS)
-uv run diff.py before.mp4 after.mp4 -o out/ --offline
+<details>
+<summary><b>Runtime and memory on a 16 GB Apple M2</b></summary>
 
-# Mode 3: Fast Preview Mode (~8 minutes total runtime, skips dense geometry)
-uv run diff.py before.mp4 after.mp4 -o out/ --detector fast
-```
-
-### Hardware Profiling & Resource Usage (16 GB Apple M2 Mac)
-
-| Pipeline Stage | Runtime | Peak Memory | Notes |
+| Stage | Runtime | Peak memory | Notes |
 |---|:---:|:---:|---|
-| Joint Reconstruction (VGGT) | ~5.5 min | 8.2 GB | Unified 48-frame feed-forward pass |
-| SceneDiff Candidate Proposals | ~22.0 min | 12.7 GB | Apple Silicon MPS; memory freed immediately upon completion |
-| 3D Ray Carving & VLM Verification | ~3.5 min | 5.1 GB | Multi-view ray projection and feature matching |
-| **Total End-to-End Pipeline** | **~30 min** | **12.7 GB** | *Subsequent re-runs with disk cache take <1 minute* |
+| Joint reconstruction (VGGT) | ~5.5 min | 8.2 GB | One 48-frame feed-forward pass |
+| SceneDiff proposals | ~22.0 min | 12.7 GB | Apple Silicon MPS; memory freed when done |
+| Ray carving + VLM verification | ~3.5 min | 5.1 GB | Multi-view ray projection and feature matching |
+| **Total** | **~30 min** | **12.7 GB** | Re-runs with the disk cache take under a minute |
 
----
+</details>
 
-## Output Artifacts
-
-Running `diff.py` populates the output directory with complete visual and machine-readable artifacts:
+## Output
 
 ```
 out/
-├── viewer.html         # Self-contained interactive 3D WebGL Three.js viewer
-├── report.md           # Markdown summary with embedded crops and status explanations
-├── changes/            # High-resolution crops with masked outlines (red = before, green = after)
+├── viewer.html     # self-contained interactive Three.js viewer
+├── report.md       # summary with crops and status explanations
+├── changes/        # crops with outlines (red = before, green = after)
 │   ├── 00.jpg
 │   └── ...
-└── changes.json        # Machine-readable detection records
+└── changes.json    # machine-readable records
 ```
 
-### `changes.json` Structure
+<details>
+<summary><b>A <code>changes.json</code> record</b></summary>
+
 ```json
 {
   "type": "moved",
@@ -255,28 +251,26 @@ out/
 }
 ```
 
----
+</details>
 
-## Repository Architecture
+## Repository layout
 
-| Component | Path | Primary Responsibility |
-|---|---|---|
-| **Pipeline CLI** | [`diff.py`](diff.py) | CLI argument parsing, stage orchestration, caching, and export pipeline |
-| **Joint Reconstruction** | [`recon.py`](recon.py) | Dual-video VGGT joint inference, trajectory synchronization, RANSAC floor fitting |
-| **Geometric Detector** | [`official.py`](official.py) | SceneDiff Apple Silicon MPS wrapper for dense difference proposal masks |
-| **Semantic Tracking** | [`semantic.py`](semantic.py) | VLM proposal extraction, SAM 2.1 segmentation, and 3D ray carving verification |
-| **Candidate Fusion** | [`fusion.py`](fusion.py) | Geometric and semantic proposal association, IoU clustering, candidate re-ranking |
-| **VLM Engine** | [`vlm.py`](vlm.py) | OpenAI vision backend client and crop-sheet verification engine |
-| **Offline Classifier** | [`label.py`](label.py) | Local zero-shot CLIP label classification for offline execution |
-| **3D WebGL Viewer** | [`viewer.py`](viewer.py) | Single-file Three.js interactive 3D viewer generator with point cloud encoding |
-| **Benchmark Suite** | [`bench.py`](bench.py) | Official SceneDiff competition metric evaluation engine |
-| **MPS SceneDiff Core** | [`scenediff_mps/`](scenediff_mps/) | Ported SceneDiff modules, π³ point tracking, and patch weights |
+| Path | Role |
+|---|---|
+| [`diff.py`](diff.py) | CLI: argument parsing, stage orchestration, caching, export |
+| [`recon.py`](recon.py) | Joint two-video VGGT inference, trajectory sync, RANSAC floor fit |
+| [`official.py`](official.py) | SceneDiff MPS wrapper for dense candidate masks |
+| [`semantic.py`](semantic.py) | VLM proposals, SAM 2.1 segmentation, 3D ray verification |
+| [`fusion.py`](fusion.py) | Geometric and semantic proposal matching and re-ranking |
+| [`vlm.py`](vlm.py) | OpenAI vision client and crop-sheet verifier |
+| [`label.py`](label.py) | Local zero-shot CLIP labels for offline mode |
+| [`viewer.py`](viewer.py) | Single-file Three.js viewer generator |
+| [`bench.py`](bench.py) | Official SceneDiff metric evaluation |
+| [`scenediff_mps/`](scenediff_mps/) | Ported SceneDiff modules, π³ point tracking and patch weights |
 
----
+## Licenses and attribution
 
-## Licenses & Attribution
-
-- **SceneDiff**: MIT License (Yuqun Wu et al.). Ported to Apple Silicon MPS under [`scenediff_mps/`](scenediff_mps/). See [`scenediff_mps/NOTICE.md`](scenediff_mps/NOTICE.md).
-- **$\pi^3$**: Non-commercial research license.
-- **Sample Video Data**: Sourced from the [SceneDiff](https://github.com/yuqunw/scene_diff) benchmark (`bathroom_1_bathroom_2`).
-- **License**: MIT License.
+- **SceneDiff:** MIT License (Yuqun Wu et al.), ported to Apple Silicon MPS in [`scenediff_mps/`](scenediff_mps/). See [`scenediff_mps/NOTICE.md`](scenediff_mps/NOTICE.md).
+- **π³:** non-commercial research license.
+- **Sample videos:** from the [SceneDiff](https://github.com/yuqunw/scene_diff) benchmark (`bathroom_1_bathroom_2`).
+- **This project:** MIT License.
