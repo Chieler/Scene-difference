@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://chieler.github.io/Scene-difference/">
-    <img src="docs/demo.gif" alt="Orbiting the merged point cloud of a bathroom; the sidebar shows the detected change: a Listerine bottle moved 3.10 m" width="900">
+    <img src="docs/demo.webp" alt="Orbiting the merged point cloud of a bathroom; red and blue mark the removed and moved objects, with the Listerine bottle moved 3.10 m" width="900">
   </a>
   <br>
   <sub>The merged point cloud from both videos. Click through to orbit it yourself.</sub>
