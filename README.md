@@ -53,11 +53,11 @@ Or serve them after cloning: `python -m http.server -d docs`, then open `http://
 
 | Color | Status | Meaning |
 |:---:|---|---|
-| 🟩 | **Added** | Only in video B; video A's rays show the space was empty |
-| 🟥 | **Removed** | Only in video A; drawn as a ghost cloud in the after model |
-| 🟦 | **Moved** | In both, displaced; joined by a metric 3D vector |
-| 🟨 | **Unverified** | Under 0.5% of the frame, or the other video never looked there |
-| ⬜ | **Unobserved** | Background the other camera never saw |
+| Green | **Added** | Only in video B; video A's rays show the space was empty |
+| Red | **Removed** | Only in video A; drawn as a ghost cloud in the after model |
+| Blue | **Moved** | In both, displaced; joined by a metric 3D vector |
+| Yellow | **Unverified** | Under 0.5% of the frame, or the other video never looked there |
+| Grey | **Unobserved** | Background the other camera never saw |
 
 <details>
 <summary><b>Viewer controls</b></summary>
@@ -86,13 +86,13 @@ uv run diff.py examples/input/before.mp4 examples/input/after.mp4 -o out/
 
 | Status | Change | Object | Shift | Why |
 |---|:---:|---|:---:|---|
-| ✅ Confirmed | `moved` | Listerine mouthwash bottle | **3.10 m** | Both detectors agree; old and new positions verified in both clouds |
-| ❔ Unverified | `removed` | Black toothbrush | — | Under 0.5% of the frame; too small for the ray test |
-| ❔ Unverified | `removed` | Small white tissue | — | Too small for ray carving |
-| ❔ Unverified | `added` | Small round toiletry item | — | The other camera never covered that angle |
-| ❌ Rejected | `added` | Blue-and-white carton | — | 3D rays show it was already there |
-| ❌ Rejected | `added` | Mirror edge reflection | — | VLM verifier: viewpoint-dependent specular artifact |
-| ❌ Rejected | `added` | White Aveeno lotion bottle | — | Same voxels occupied in both passes |
+| **Confirmed** | `moved` | Listerine mouthwash bottle | **3.10 m** | Both detectors agree; old and new positions verified in both clouds |
+| Unverified | `removed` | Black toothbrush | — | Under 0.5% of the frame; too small for the ray test |
+| Unverified | `removed` | Small white tissue | — | Too small for ray carving |
+| Unverified | `added` | Small round toiletry item | — | The other camera never covered that angle |
+| Rejected | `added` | Blue-and-white carton | — | 3D rays show it was already there |
+| Rejected | `added` | Mirror edge reflection | — | VLM verifier: viewpoint-dependent specular artifact |
+| Rejected | `added` | White Aveeno lotion bottle | — | Same voxels occupied in both passes |
 
 <details>
 <summary><b>See the unverified and rejected crops</b></summary>
